@@ -6,3 +6,5 @@ venv/
 *.parquet
 pgc_data/
 .DS_Store
+figures/
+results/

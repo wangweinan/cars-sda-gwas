@@ -2,25 +2,33 @@
 CARS-SDA: Covariate-Adaptive FDR Control with Empirical Null
 =============================================================
 Integrates:
-  - CARS (Cai, Sun, Wang 2019) nonparametric density-ratio local FDR
-  - SDA (Du et al. 2023) mirror-symmetry FDR control
+  - CARS (Cai, Sun, Wang 2019) bivariate density-ratio statistic
+  - SDA (Du et al. 2023) step-up FDR control
   - Jin-Cai (2007) Fourier-based empirical null estimation
 
-The key insight: lfdr(z|s) = π₀ · f₀(z) / f_kde(z|s)
-  - f₀ is the parametric empirical null N(μ₀, σ₀²) from Jin-Cai
-  - f_kde is estimated NONPARAMETRICALLY via KDE within each covariate bin
-  - No parametric assumption on the alternative distribution
+The CARS statistic is the bivariate analogue of lfdr:
+
+              f₀(Z) · (|T_τ|/m) · f*(S | T_τ)
+  CARS(i) = ─────────────────────────────────────
+                correction · f(Z, S)
+
+Where:
+  - f₀ = N(μ₀, σ₀²) from Jin-Cai empirical null
+  - T_τ = {i : lfdr_marginal ≥ τ} (null-like screening set)
+  - f*(S | T_τ) = covariate density among null-like obs
+  - f(Z, S) = bivariate joint density (2D FFT-KDE)
+  - correction = P(lfdr ≥ τ | H₀) via Monte Carlo
 
 Usage:
     from cars_sda import cars_sda, adaptive_z, jin_cai_empirical_null
 
-    rejections, lfdr, threshold, mu0, sigma0 = cars_sda(Z, MAF, alpha=0.05)
+    rejections, cars_stat, threshold, mu0, sigma0 = cars_sda(Z, MAF, alpha=0.05)
 """
 
 import numpy as np
-from scipy import stats
+from scipy import stats, interpolate
 
-__version__ = "2.0.0"
+__version__ = "3.0.0"
 __all__ = ["cars_sda", "adaptive_z", "jin_cai_empirical_null"]
 
 
@@ -51,10 +59,14 @@ def jin_cai_empirical_null(z, t_range=(1.0, 3.0), n_t=50):
     """
     z = np.asarray(z, dtype=float)
     n = len(z)
-    z_sub = z[np.random.RandomState(42).choice(n, min(n, 500_000), replace=False)] if n > 500_000 else z
+    rng = np.random.RandomState(42)
+    z_sub = z[rng.choice(n, min(n, 500_000), replace=False)] if n > 500_000 else z
 
     t_vals = np.linspace(t_range[0], t_range[1], n_t)
-    log_mod_sq = np.array([np.log(max(np.abs(np.mean(np.exp(1j * t * z_sub)))**2, 1e-300)) for t in t_vals])
+    log_mod_sq = np.array([
+        np.log(max(np.abs(np.mean(np.exp(1j * t * z_sub)))**2, 1e-300))
+        for t in t_vals
+    ])
 
     # Weighted least squares: log|φ(t)|² = a + b·t²
     W = np.diag(np.exp(-0.5 * t_vals))
@@ -72,24 +84,25 @@ def jin_cai_empirical_null(z, t_range=(1.0, 3.0), n_t=50):
     return mu0, sigma0, pi0
 
 
-# --- Nonparametric KDE-based lfdr estimation ----------------------------------
+# --- FFT-based KDE (1D and 2D) -----------------------------------------------
+
+def _silverman_bw(x):
+    """Silverman's rule-of-thumb bandwidth (normal-reference)."""
+    n = len(x)
+    iqr = np.subtract(*np.percentile(x, [75, 25]))
+    sigma = min(np.std(x), iqr / 1.34) if iqr > 0 else np.std(x)
+    return max(0.9 * sigma * n ** (-0.2), 1e-8)
+
 
 def _fft_kde(z, grid_n=4096, bw=None):
     """
-    FFT-based Gaussian KDE — O(n + grid_n), matching R's density().
-
-    1. Bin data into a fine grid (O(n))
-    2. Convolve with Gaussian kernel via FFT (O(grid_n · log(grid_n)))
-    3. Return (grid, density) for interpolation
+    1D FFT-based Gaussian KDE — O(n + grid_n), matching R's density().
 
     Parameters
     ----------
-    z : array_like
-        Data points.
-    grid_n : int
-        Grid resolution (power of 2 recommended for FFT).
-    bw : float or None
-        Bandwidth. If None, uses Silverman's rule.
+    z : array_like — Data points.
+    grid_n : int   — Grid resolution (power of 2).
+    bw : float     — Bandwidth (Silverman if None).
 
     Returns
     -------
@@ -98,132 +111,144 @@ def _fft_kde(z, grid_n=4096, bw=None):
     """
     z = np.asarray(z, dtype=float)
     n = len(z)
-
-    # Silverman bandwidth (normal-reference rule, matches CARS R code)
     if bw is None:
-        iqr = np.subtract(*np.percentile(z, [75, 25]))
-        bw = 0.9 * min(np.std(z), iqr / 1.34) * n ** (-0.2)
-        bw = max(bw, 1e-6)
+        bw = _silverman_bw(z)
 
-    # Grid
     pad = 4 * bw
     z_min, z_max = z.min() - pad, z.max() + pad
     grid = np.linspace(z_min, z_max, grid_n)
     dx = grid[1] - grid[0]
 
-    # Bin data into grid (linear binning for better accuracy)
     counts, _ = np.histogram(z, bins=grid_n, range=(z_min, z_max))
     counts = counts.astype(float)
 
-    # Gaussian kernel on grid
     kernel_grid = np.arange(-(grid_n // 2), grid_n // 2) * dx
     kernel = np.exp(-0.5 * (kernel_grid / bw) ** 2) / (bw * np.sqrt(2 * np.pi))
-    kernel = np.fft.ifftshift(kernel)  # center for FFT
+    kernel = np.fft.ifftshift(kernel)
 
-    # Convolve via FFT: f_hat = (1/n) * Σ counts[k] * K_h(x - x_k)
     density = np.real(np.fft.ifft(np.fft.fft(counts) * np.fft.fft(kernel)))
     density = np.maximum(density / n, 1e-300)
 
     return grid, density
 
 
-def _kde_lfdr_fft(z_bin, mu0, sigma0, pi0_bin, grid_n=4096):
+def _fft_kde_2d(z, s, grid_nz=512, grid_ns=512, bw_z=None, bw_s=None):
     """
-    Compute lfdr via nonparametric FFT-based KDE density ratio.
+    2D FFT-based Gaussian KDE using product kernel.
 
-    lfdr(z) = π₀ · f₀(z) / f_kde(z)
+    K_h(z, s) = K_{h1}(z) · K_{h2}(s)
 
-    where f₀ = N(μ₀, σ₀²) and f_kde is estimated nonparametrically
-    using FFT convolution. O(n) time — handles millions of observations.
-    No parametric assumption on the alternative distribution.
+    Exploits separability for O(n + G² log G) computation.
 
     Parameters
     ----------
-    z_bin : array_like
-        Z-scores in this covariate bin.
-    mu0 : float
-        Empirical null mean.
-    sigma0 : float
-        Empirical null std.
-    pi0_bin : float
-        Null proportion for this bin.
-    grid_n : int
-        FFT grid size (power of 2).
+    z, s : array_like, shape (n,)
+        Primary and auxiliary variables.
+    grid_nz, grid_ns : int
+        Grid dimensions.
+    bw_z, bw_s : float
+        Bandwidths (Silverman if None).
 
     Returns
     -------
-    lfdr : ndarray, shape same as z_bin
-        Local FDR estimates.
+    grid_z : ndarray, shape (grid_nz,)
+    grid_s : ndarray, shape (grid_ns,)
+    density_2d : ndarray, shape (grid_nz, grid_ns)
     """
-    z_bin = np.asarray(z_bin, dtype=float)
-    n = len(z_bin)
+    z = np.asarray(z, dtype=float)
+    s = np.asarray(s, dtype=float)
+    n = len(z)
 
-    if n < 20:
-        return np.ones_like(z_bin)
+    if bw_z is None:
+        bw_z = _silverman_bw(z)
+    if bw_s is None:
+        bw_s = _silverman_bw(s)
 
-    # FFT-based KDE (O(n + grid_n))
-    grid, f_kde_grid = _fft_kde(z_bin, grid_n=grid_n)
+    # Grids
+    pad_z, pad_s = 4 * bw_z, 4 * bw_s
+    z_min, z_max = z.min() - pad_z, z.max() + pad_z
+    s_min, s_max = s.min() - pad_s, s.max() + pad_s
+    grid_z = np.linspace(z_min, z_max, grid_nz)
+    grid_s = np.linspace(s_min, s_max, grid_ns)
+    dz = grid_z[1] - grid_z[0]
+    ds = grid_s[1] - grid_s[0]
 
-    # Interpolate to data points
-    f_kde = np.interp(z_bin, grid, f_kde_grid)
-    f_kde = np.maximum(f_kde, 1e-300)
+    # 2D histogram
+    counts, _, _ = np.histogram2d(
+        z, s, bins=[grid_nz, grid_ns],
+        range=[[z_min, z_max], [s_min, s_max]]
+    )
+    counts = counts.astype(float)
 
-    # Null density
-    f0 = stats.norm.pdf(z_bin, mu0, sigma0)
+    # Separable product kernel
+    kz = np.arange(-(grid_nz // 2), grid_nz // 2) * dz
+    ks = np.arange(-(grid_ns // 2), grid_ns // 2) * ds
+    kernel_z = np.exp(-0.5 * (kz / bw_z)**2) / (bw_z * np.sqrt(2 * np.pi))
+    kernel_s = np.exp(-0.5 * (ks / bw_s)**2) / (bw_s * np.sqrt(2 * np.pi))
+    kernel_z = np.fft.ifftshift(kernel_z)
+    kernel_s = np.fft.ifftshift(kernel_s)
 
-    # lfdr = π₀ · f₀(z) / f_kde(z)
-    lfdr = np.clip(pi0_bin * f0 / f_kde, 0.0, 1.0)
+    # 2D kernel = outer product (separable)
+    kernel_2d = np.outer(kernel_z, kernel_s)
 
-    return lfdr
+    # 2D FFT convolution
+    density = np.real(np.fft.ifft2(np.fft.fft2(counts) * np.fft.fft2(kernel_2d)))
+    density = np.maximum(density / n, 1e-300)
 
+    return grid_z, grid_s, density
+
+
+def _interp_1d(x, grid, density):
+    """Interpolate 1D KDE to data points, clamped to grid range."""
+    return np.maximum(np.interp(x, grid, density), 1e-300)
+
+
+def _interp_2d(z, s, grid_z, grid_s, density_2d):
+    """Interpolate 2D KDE to data points via RegularGridInterpolator."""
+    # Grid centers (histogram bin centers, not edges)
+    interp_fn = interpolate.RegularGridInterpolator(
+        (grid_z, grid_s), density_2d,
+        method='linear', bounds_error=False, fill_value=1e-300
+    )
+    points = np.column_stack([z, s])
+    return np.maximum(interp_fn(points), 1e-300)
+
+
+# --- Storey π₀ estimation -----------------------------------------------------
 
 def _storey_pi0(z, mu0, sigma0, lam=0.5):
-    """
-    Storey (2002) null proportion estimator using empirical null p-values.
-
-    Parameters
-    ----------
-    z : array_like
-        Z-scores.
-    mu0, sigma0 : float
-        Empirical null parameters.
-    lam : float
-        Storey threshold (default 0.5).
-
-    Returns
-    -------
-    pi0 : float
-        Estimated null proportion, clipped to [0.1, 1.0].
-    """
+    """Storey (2002) null proportion estimator using empirical-null p-values."""
     p = 2 * (1 - stats.norm.cdf(np.abs((z - mu0) / sigma0)))
-    pi0 = np.clip(np.mean(p > lam) / (1 - lam), 0.1, 1.0)
-    return pi0
+    return np.clip(np.mean(p > lam) / (1 - lam), 0.1, 1.0)
 
 
 # --- Step-Up Threshold --------------------------------------------------------
 
-def _stepup(lfdr, alpha):
-    """Sort by ascending lfdr; reject largest k where cumavg(lfdr) ≤ α."""
-    idx = np.argsort(lfdr)
-    cumavg = np.cumsum(lfdr[idx]) / np.arange(1, len(lfdr) + 1)
+def _stepup(statistic, alpha):
+    """Sort by ascending statistic; reject largest k where cumavg ≤ α."""
+    idx = np.argsort(statistic)
+    cumavg = np.cumsum(statistic[idx]) / np.arange(1, len(statistic) + 1)
     valid = np.where(cumavg <= alpha)[0]
-    rej = np.zeros(len(lfdr), dtype=bool)
+    rej = np.zeros(len(statistic), dtype=bool)
     thr = 0.0
     if len(valid) > 0:
         k = valid[-1]
         rej[idx[:k + 1]] = True
-        thr = lfdr[idx[k]]
+        thr = statistic[idx[k]]
     return rej, thr
 
 
 # --- Main CARS-SDA Procedure -------------------------------------------------
 
-def cars_sda(Z, S, alpha=0.05, n_bins=20, K=5, mu0=None, sigma0=None, verbose=True):
+def cars_sda(Z, S, alpha=0.05, tau=0.9, mu0=None, sigma0=None, verbose=True):
     """
-    CARS-SDA with Jin-Cai empirical null and nonparametric KDE.
+    CARS-SDA: proper bivariate density-ratio statistic.
 
-    The density ratio lfdr(z|s) = π₀(s) · f₀(z) / f_kde(z|s) is computed
-    within each covariate bin using KDE — no parametric alternative needed.
+    Implements the CARS construction from Cai, Sun & Wang (2019):
+
+                  f₀(Z) · (|T_τ|/m) · f*(S | T_τ)
+      CARS(i) = ─────────────────────────────────────
+                     correction · f(Z, S)
 
     Parameters
     ----------
@@ -233,10 +258,8 @@ def cars_sda(Z, S, alpha=0.05, n_bins=20, K=5, mu0=None, sigma0=None, verbose=Tr
         Auxiliary covariate (e.g., MAF).
     alpha : float
         Target FDR level (default 0.05).
-    n_bins : int
-        Number of covariate quantile bins.
-    K : int
-        Number of cross-fitting folds.
+    tau : float
+        Screening threshold for null-like set (default 0.9).
     mu0, sigma0 : float or None
         Empirical null parameters. Auto-estimated if None.
     verbose : bool
@@ -245,82 +268,93 @@ def cars_sda(Z, S, alpha=0.05, n_bins=20, K=5, mu0=None, sigma0=None, verbose=Tr
     Returns
     -------
     rejections : ndarray of bool
-    lfdr : ndarray of float
+    cars_stat : ndarray of float   — The CARS statistic (bivariate lfdr analogue).
     threshold : float
     mu0 : float
     sigma0 : float
+    diagnostics : dict              — Intermediate quantities for validation.
     """
     Z, S = np.asarray(Z, float), np.asarray(S, float)
     m = len(Z)
 
+    # --- Step 0: Empirical null ---
     if mu0 is None or sigma0 is None:
-        mu0, sigma0, pi0_g = jin_cai_empirical_null(Z)
+        mu0, sigma0, pi0_jc = jin_cai_empirical_null(Z)
         if verbose:
-            print(f"  Empirical null: μ₀={mu0:.4f}, σ₀={sigma0:.4f}, π₀={pi0_g:.4f}")
+            print(f"  Jin-Cai null: μ₀={mu0:.4f}, σ₀={sigma0:.4f}, π₀={pi0_jc:.4f}")
 
-    edges = np.quantile(S, np.linspace(0, 1, n_bins + 1))
-    edges[0] -= 1e-10; edges[-1] += 1e-10
+    # --- Step 1: Marginal lfdr for Z (screening only) ---
+    f0 = stats.norm.pdf(Z, mu0, sigma0)
+    grid_z, fhat_z = _fft_kde(Z, grid_n=8192)
+    f_z = _interp_1d(Z, grid_z, fhat_z)
+    pi0 = _storey_pi0(Z, mu0, sigma0)
+    lfdr_marginal = np.clip(pi0 * f0 / f_z, 0.0, 1.0)
 
+    if verbose:
+        print(f"  Storey π₀={pi0:.4f}, marginal lfdr median={np.median(lfdr_marginal):.4f}")
+
+    # --- Step 2: Null-like screening set T_τ ---
+    T_tau = lfdr_marginal >= tau
+    n_tau = T_tau.sum()
+    if verbose:
+        print(f"  T_τ (lfdr≥{tau}): {n_tau:,} / {m:,} ({100*n_tau/m:.1f}%)")
+
+    # --- Step 3: Monte Carlo correction ---
+    #   P(lfdr_marginal ≥ τ | H₀) — what fraction of true nulls land in T_τ
     rng = np.random.RandomState(42)
-    folds = np.array_split(rng.permutation(m), K)
-    lfdr_arr = np.ones(m)
+    z_null = rng.normal(mu0, sigma0, 50_000)
+    f_null_kde = _interp_1d(z_null, grid_z, fhat_z)
+    f_null_true = stats.norm.pdf(z_null, mu0, sigma0)
+    lfdr_null = np.clip(pi0 * f_null_true / f_null_kde, 0.0, 1.0)
+    correction = np.mean(lfdr_null >= tau)
+    correction = max(correction, 0.01)  # floor to prevent blow-up
+    if verbose:
+        print(f"  Correction P(lfdr≥{tau}|H₀) = {correction:.4f}")
 
-    for k in range(K):
-        te = folds[k]
-        tr = np.concatenate([folds[j] for j in range(K) if j != k])
-        bi_tr = np.clip(np.digitize(S[tr], edges) - 1, 0, n_bins - 1)
-        bi_te = np.clip(np.digitize(S[te], edges) - 1, 0, n_bins - 1)
+    # --- Step 4: Auxiliary density among null-like observations ---
+    grid_s_null, fstar_s = _fft_kde(S[T_tau], grid_n=4096)
+    f_s_given_null = _interp_1d(S, grid_s_null, fstar_s)
 
-        # Estimate per-bin π₀ and FFT-KDE on training data
-        pi0_bins = {}
-        kde_grids = {}  # store (grid, density) tuples from FFT KDE
-        for b in range(n_bins):
-            mask = bi_tr == b
-            n_b = np.sum(mask)
-            if n_b >= 30:
-                z_b = Z[tr][mask]
-                pi0_bins[b] = _storey_pi0(z_b, mu0, sigma0)
-                kde_grids[b] = _fft_kde(z_b)  # O(n_b) via FFT
-            else:
-                pi0_bins[b] = 0.95
-                kde_grids[b] = None
+    # --- Step 5: Joint density f(Z, S) via 2D FFT-KDE ---
+    grid_z2d, grid_s2d, f_joint_2d = _fft_kde_2d(Z, S)
+    f_joint = _interp_2d(Z, S, grid_z2d, grid_s2d, f_joint_2d)
 
-        # Smooth π₀ across bins (Gaussian kernel, bandwidth = 3 bins)
-        raw_pi0 = np.array([pi0_bins[b] for b in range(n_bins)])
-        smooth_pi0 = np.copy(raw_pi0)
-        for b in range(n_bins):
-            lo, hi = max(0, b - 3), min(n_bins, b + 4)
-            w = np.exp(-0.5 * ((np.arange(lo, hi) - b) / 1.5)**2)
-            w /= w.sum()
-            smooth_pi0[b] = np.dot(w, raw_pi0[lo:hi])
+    if verbose:
+        print(f"  2D KDE: grid {len(grid_z2d)}×{len(grid_s2d)}, "
+              f"f_joint range [{f_joint.min():.2e}, {f_joint.max():.2e}]")
 
-        # Compute lfdr on test fold using training FFT-KDE
-        for b in range(n_bins):
-            mask = bi_te == b
-            if not mask.any():
-                continue
-            z_t = Z[te][mask]
-            pi0_b = smooth_pi0[b]
+    # --- Step 6: CARS statistic ---
+    numerator = f0 * (n_tau / m) * f_s_given_null / correction
+    cars_stat = np.clip(numerator / f_joint, 0.0, 1.0)
 
-            if kde_grids[b] is not None:
-                grid, f_kde_grid = kde_grids[b]
-                f_kde = np.interp(z_t, grid, f_kde_grid)
-                f_kde = np.maximum(f_kde, 1e-300)
-                f0 = stats.norm.pdf(z_t, mu0, sigma0)
-                lfdr_arr[te[mask]] = np.clip(pi0_b * f0 / f_kde, 0.0, 1.0)
-            else:
-                lfdr_arr[te[mask]] = 1.0
+    # --- Step 7: Step-up procedure ---
+    rej, thr = _stepup(cars_stat, alpha)
 
-    rej, thr = _stepup(lfdr_arr, alpha)
     if verbose:
         print(f"  CARS-SDA: {rej.sum():,} rejections (threshold={thr:.5f})")
-    return rej, lfdr_arr, thr, mu0, sigma0
+
+    diagnostics = {
+        'lfdr_marginal': lfdr_marginal,
+        'f0': f0, 'f_z': f_z, 'f_joint': f_joint,
+        'f_s_given_null': f_s_given_null,
+        'grid_z': grid_z, 'fhat_z': fhat_z,
+        'grid_s_null': grid_s_null, 'fstar_s': fstar_s,
+        'T_tau': T_tau, 'correction': correction,
+        'pi0': pi0, 'mu0': mu0, 'sigma0': sigma0,
+    }
+
+    return rej, cars_stat, thr, mu0, sigma0, diagnostics
 
 
 # --- Adaptive-Z (Sun & Cai 2007) with Empirical Null -------------------------
 
 def adaptive_z(Z, alpha=0.05, verbose=True):
-    """Sun & Cai (2007) procedure with Jin-Cai empirical null and FFT KDE."""
+    """
+    Sun & Cai (2007) procedure with Jin-Cai empirical null and FFT KDE.
+
+    This is the marginal lfdr procedure — no covariate information used.
+    Serves as the baseline to measure CARS' improvement.
+    """
     Z = np.asarray(Z, float)
     mu0, sigma0, _ = jin_cai_empirical_null(Z)
     if verbose:
@@ -329,7 +363,6 @@ def adaptive_z(Z, alpha=0.05, verbose=True):
     P = 2 * (1 - stats.norm.cdf(np.abs((Z - mu0) / sigma0)))
     pi0 = min(1.0, np.mean(P > 0.5) / 0.5)
 
-    # FFT-based KDE on full data (O(n) — no subsampling needed)
     grid, f_kde_grid = _fft_kde(Z, grid_n=8192)
     f_z = np.interp(Z, grid, f_kde_grid)
     f0 = stats.norm.pdf(Z, mu0, sigma0)
@@ -337,4 +370,3 @@ def adaptive_z(Z, alpha=0.05, verbose=True):
     lfdr = np.minimum(1.0, pi0 * f0 / np.maximum(f_z, 1e-300))
     rej, thr = _stepup(lfdr, alpha)
     return rej, lfdr, thr
-
