@@ -85,8 +85,11 @@ def main():
         "BH_raw": rej_bh_raw, "BH_GC": rej_bh_gc, "AdaptZ": rej_az,
         "CARS": rej_cs, "CARS_exclusive": excl,
     })
-    out.to_parquet("../results/cars_sda_results.parquet", index=False)
-    print("\nSaved: results/cars_sda_results.parquet")
+    out_dir = os.path.join(os.path.dirname(__file__), '..', 'results')
+    os.makedirs(out_dir, exist_ok=True)
+    out_path = os.path.join(out_dir, 'cars_sda_results.parquet')
+    out.to_parquet(out_path, index=False)
+    print(f"\nSaved: {out_path}")
 
 
 if __name__ == "__main__":
