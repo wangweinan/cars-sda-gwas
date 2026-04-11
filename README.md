@@ -23,7 +23,7 @@ Applied to **37.6 million variants** from the PGC Schizophrenia GWAS (Trubetskoy
 | Adaptive-Z (empirical null) | 170,224 | ✅ Controlled | +0.9% |
 | **CARS-SDA (empirical null)** | **251,043** | ✅ Controlled | **+48.9%** |
 
-**89,036 CARS-exclusive variants** across **1,867 independent genomic loci** identify novel biology invisible to standard procedures.
+**89,036 CARS-exclusive variants** across **1,867 independent genomic loci** mapping to **1,096 unique genes** identify novel biology invisible to standard procedures.
 
 ---
 
@@ -75,6 +75,18 @@ Simulation matching PGC-SCZ properties (σ₀ = 1.16, covariate-dependent sparsi
 | **Transcription** | SP4*, CHD2*, SREBF2, FANCA | Upstream gene regulation |
 
 *\* = PGC3/SCHEMA confirmed (positive control validating CARS-SDA)*
+
+### Systems-Level Etiology Model
+
+<p align="center">
+  <img src="figures/etiology_model.png" width="650" alt="Etiology Model"/>
+</p>
+
+Four hierarchical levels of genetic disruption cascade into schizophrenia:
+1. **Transcriptional control** (SP4, CHD2) → sets the developmental program
+2. **Circuit assembly** (PCDHA7, CTNNA2) + **Energy supply** (ALAS1, DLST) → builds neural infrastructure
+3. **Synaptic function** (GRIN2A, CACNA1I, KCNB1) → enables neurotransmission
+4. **Maintenance** (TSNARE1, NUP88, GULP1) → sustains synaptic homeostasis
 
 ### Paradigm-Shifting Findings
 
@@ -151,9 +163,11 @@ cars-sda-gwas/
 │   ├── power_comparison.png
 │   ├── simulation_validation.png
 │   ├── pipeline_diagram.png
-│   └── gene_network.png
+│   ├── gene_network.png
+│   └── etiology_model.png
 ├── results/
-│   └── cars_exclusive_genes.csv  # All CARS-exclusive gene discoveries
+│   ├── cars_exclusive_ALL_genes.csv  # All 1,096 CARS-exclusive genes
+│   └── cars_exclusive_ALL_genes.json
 ├── docs/
 │   └── index.html            # GitHub Pages site
 └── README.md
