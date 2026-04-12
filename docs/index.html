@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CARS-SDA v3.0 — Bivariate Covariate-Adaptive FDR Control for GWAS</title>
-    <meta name="description" content="CARS-SDA v3.0: Proper bivariate density-ratio CARS statistic with 2D FFT-KDE and Jin-Cai empirical null. 218,476 discoveries (+29.6%) in PGC Schizophrenia GWAS.">
+    <meta name="description" content="CARS-SDA v3.0: Bivariate density-ratio CARS statistic with 2D FFT-KDE and Jin-Cai empirical null. 1,745 independent loci (+14.3%) in PGC Schizophrenia GWAS, with 371 net new loci.">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <script src="gene_data.js"></script>
     <style>
@@ -226,9 +226,9 @@
         </p>
         <div class="hero-stats">
             <div class="stat-pill s1"><span class="num">37.6M</span><span class="lbl">Variants Analyzed</span></div>
-            <div class="stat-pill s2"><span class="num">+29.6%</span><span class="lbl">Power vs BH-GC</span></div>
-            <div class="stat-pill s3"><span class="num">58,213</span><span class="lbl">Novel Discoveries</span></div>
-            <div class="stat-pill s4"><span class="num">1,096</span><span class="lbl">Unique Genes</span></div>
+            <div class="stat-pill s2"><span class="num">+14.3%</span><span class="lbl">Independent Loci vs BH-GC</span></div>
+            <div class="stat-pill s3"><span class="num">371</span><span class="lbl">Net New Loci</span></div>
+            <div class="stat-pill s4"><span class="num">1,745</span><span class="lbl">Independent Loci</span></div>
         </div>
     </div>
 </div>
@@ -254,17 +254,21 @@
         <h2 class="stitle">PGC Schizophrenia Results</h2>
         <p class="sdesc">76,755 cases + 243,649 controls (Trubetskoy et al., <em>Nature</em> 2022) — 37.6M variants processed in 86 seconds</p>
         <div class="results-table">
-            <table><thead><tr><th>Method</th><th>Discoveries</th><th>FDR</th><th>vs. Baseline</th></tr></thead><tbody>
-                <tr><td>BH (raw, no correction)</td><td>334,061</td><td><span class="tag-bad">Inflated</span></td><td>—</td></tr>
-                <tr><td><strong>BH (GC-corrected)</strong></td><td><strong>168,638</strong></td><td><span class="tag-ok">Controlled</span></td><td>Baseline</td></tr>
-                <tr><td>Adaptive-Z (empirical null, marginal)</td><td>172,749</td><td><span class="tag-ok">Controlled</span></td><td>+2.4%</td></tr>
-                <tr><td><strong>CARS-SDA v3.0 (bivariate KDE)</strong></td><td><strong>218,476</strong></td><td><span class="tag-ok">Controlled</span></td><td><span class="power-gain">+29.6%</span></td></tr>
-                <tr><td style="color:var(--accent2)">→ CARS-exclusive discoveries</td><td style="color:var(--accent2)"><strong>58,213</strong></td><td><span class="tag-new">Novel</span></td><td></td></tr>
+            <table><thead><tr><th>Method</th><th>Variants</th><th>Independent Loci<br><small>(500kb clumped)</small></th><th>FDR</th><th>Locus Gain</th></tr></thead><tbody>
+                <tr><td>GWAS-significant (p&lt;5×10⁻⁸)</td><td>43,544</td><td>284</td><td><span class="tag-ok">FWER</span></td><td>—</td></tr>
+                <tr><td><strong>BH (GC-corrected)</strong></td><td>168,638</td><td><strong>1,527</strong></td><td><span class="tag-ok">Controlled</span></td><td>Baseline</td></tr>
+                <tr><td>Adaptive-Z (empirical null, marginal)</td><td>172,749</td><td>1,562</td><td><span class="tag-ok">Controlled</span></td><td>+2.3%</td></tr>
+                <tr><td><strong>CARS-SDA v3.0 (bivariate KDE)</strong></td><td>218,476</td><td><strong>1,745</strong></td><td><span class="tag-ok">Controlled</span></td><td><span class="power-gain">+14.3%</span></td></tr>
+                <tr><td style="color:var(--accent2)">→ Net new loci (not in BH-GC)</td><td></td><td style="color:var(--accent2)"><strong>371</strong></td><td><span class="tag-new">Novel</span></td><td></td></tr>
             </tbody></table>
         </div>
         <div class="hl-box" style="margin-top: 28px;">
-            <h4>Why CARS > Adaptive-Z (+29.6% vs +2.4%)</h4>
-            <p>Adaptive-Z uses only the marginal density f(Z). CARS uses the <strong>bivariate joint density f(Z, MAF)</strong> — capturing how signal enrichment varies with allele frequency. The 2D FFT-KDE makes this computationally efficient: 37.6M variants in ~90 seconds.</p>
+            <h4>Why locus-level, not variant-level?</h4>
+            <p>Variant-level counts are <strong>inflated ~127× by linkage disequilibrium</strong>. A single causal variant creates ~127 significant neighbors. We report locus-level discoveries (500kb distance-clumped) for scientific accuracy. CARS gains +14.3% independent loci — the bivariate f(Z, MAF) captures real signal enrichment at common allele frequencies.</p>
+        </div>
+        <div class="hl-box" style="margin-top: 14px; border-color: rgba(255,179,71,0.3); background: rgba(255,179,71,0.04);">
+            <h4 style="color: var(--orange)">⚠ Theoretical caveat</h4>
+            <p>CARS (Cai et al. 2019) assumes independent tests. GWAS LD violates this. FDR control likely holds under PRDS conditions, but locus-level FDR requires post-hoc clumping. The 371 net new loci are at suggestive significance (p ~ 10⁻⁴) and require independent replication.</p>
         </div>
     </div>
 </section>
