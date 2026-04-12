@@ -6,13 +6,18 @@ Integrates:
   - Jin-Cai (2007) Fourier-based empirical null estimation
   - Barber-Candès step-up for FDR control
 
-NOTE: Despite the name, we do NOT currently implement the full
-SDA step-down dependency adjustment (Du et al. 2023). Our step-up
-procedure treats observations as independent. For LD-correlated
-GWAS data, FDR control relies on the PRDS condition being satisfied
-(plausible under positive LD, but not formally proven).
-The "SDA" name is retained for continuity but should be understood
-as aspirational — proper LD-aware step-down is a future extension.
+NOTE ON "SDA": SDA = Symmetrized Data Aggregation (Du, Guo, Sun &
+Zou, 2023, JASA; R package: sdafilter). The full SDA procedure
+achieves FDR control under *arbitrary* dependence by:
+  1. Splitting data into two halves
+  2. Using one half to construct mirror statistics
+  3. Aggregating across B random splits for stability
+We do NOT currently implement the SDA data-splitting/symmetrization.
+Our step-up treats observations as independent. For LD-correlated
+GWAS data, formal FDR control would require the full SDA procedure
+or verification of the PRDS condition.
+The "SDA" name is retained for continuity but reflects an aspiration
+— proper integration of sdafilter is a future extension.
 
 The CARS statistic is the bivariate analogue of lfdr:
 
