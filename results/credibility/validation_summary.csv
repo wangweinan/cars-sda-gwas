@@ -1,0 +1,10 @@
+test,result,passed
+Cross-Study Concordance,89.8%,PASS
+Effect Direction Bias,p=3.3e-10,PASS
+MAF Structure (KS),p=3.6e-69,PASS
+Chromosomal Uniformity,p=0.87,PASS
+CARS Stat Separation,3.5×,PASS
+Local Signal Support,~39 nearby,PASS
+GTEx Brain eQTLs,17/371,PASS
+Known SCZ Genes,3/101,WEAK
+SCHEMA Rare Variants,0/32,FAIL
