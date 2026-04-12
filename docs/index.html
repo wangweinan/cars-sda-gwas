@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CARS-SDA v3.0 — Bivariate Covariate-Adaptive FDR Control for GWAS</title>
-    <meta name="description" content="CARS-SDA v3.0: Bivariate density-ratio CARS statistic with 2D FFT-KDE and Jin-Cai empirical null. 1,745 independent loci (+14.3%) in PGC Schizophrenia GWAS, with 371 net new loci.">
+    <title>CARS-JC v3.0 — Bivariate Covariate-Adaptive FDR Control for GWAS</title>
+    <meta name="description" content="CARS-JC v3.0: Bivariate density-ratio CARS statistic with 2D FFT-KDE and Jin-Cai empirical null. 1,745 independent loci (+14.3%) in PGC Schizophrenia GWAS, with 371 net new loci.">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <script src="gene_data.js"></script>
     <style>
@@ -196,7 +196,7 @@
 
 <!-- NAV -->
 <nav><div class="container">
-    <span class="logo">CARS-SDA<span class="logo-ver">v3.0</span></span>
+    <span class="logo">CARS-JC<span class="logo-ver">v3.0</span></span>
     <a href="#results">Results</a>
     <a href="#method">Method</a>
     <a href="#validation">Validation</a>
@@ -218,7 +218,7 @@
     <div class="hero-grid"></div>
     <div class="hero-content">
         <div class="hero-badge">Bivariate Density-Ratio FDR Control</div>
-        <h1>CARS-SDA</h1>
+        <h1>CARS-JC</h1>
         <p class="subtitle">Covariate-Adaptive Ranking & Screening with Empirical Null Estimation for Large-Scale GWAS Discovery</p>
         <p class="methods">
             <strong>CARS</strong> (Cai, Sun &amp; Wang 2019) &middot;
@@ -260,7 +260,7 @@
                 <tr><td>GWAS-significant (p&lt;5×10⁻⁸)</td><td>43,544</td><td>284</td><td><span class="tag-ok">FWER</span></td><td>—</td></tr>
                 <tr><td><strong>BH (GC-corrected)</strong></td><td>168,638</td><td><strong>1,527</strong></td><td><span class="tag-ok">Controlled</span></td><td>Baseline</td></tr>
                 <tr><td>Adaptive-Z (empirical null, marginal)</td><td>172,749</td><td>1,562</td><td><span class="tag-ok">Controlled</span></td><td>+2.3%</td></tr>
-                <tr><td><strong>CARS-SDA v3.0 (bivariate KDE)</strong></td><td>218,476</td><td><strong>1,745</strong></td><td><span class="tag-ok">Controlled</span></td><td><span class="power-gain">+14.3%</span></td></tr>
+                <tr><td><strong>CARS-JC v3.0 (bivariate KDE)</strong></td><td>218,476</td><td><strong>1,745</strong></td><td><span class="tag-ok">Controlled</span></td><td><span class="power-gain">+14.3%</span></td></tr>
                 <tr><td style="color:var(--accent2)">→ Net new loci (not in BH-GC)</td><td></td><td style="color:var(--accent2)"><strong>371</strong></td><td><span class="tag-new">Novel</span></td><td></td></tr>
             </tbody></table>
         </div>
@@ -326,7 +326,7 @@
                         <tr><td>BH (raw)</td><td>9,832</td><td><span class="tag-bad">27.0%</span></td><td>56.4%</td></tr>
                         <tr><td>BH (GC)</td><td>3,753</td><td><span class="tag-ok">4.9%</span></td><td>28.1%</td></tr>
                         <tr><td>Adaptive-Z</td><td>3,781</td><td><span class="tag-ok">4.9%</span></td><td>28.3%</td></tr>
-                        <tr><td><strong>CARS-SDA</strong></td><td><strong>3,994</strong></td><td><span class="tag-ok">5.3%</span></td><td><strong class="power-gain">29.8%</strong></td></tr>
+                        <tr><td><strong>CARS-JC</strong></td><td><strong>3,994</strong></td><td><span class="tag-ok">5.3%</span></td><td><strong class="power-gain">29.8%</strong></td></tr>
                     </tbody>
                 </table>
                 <p style="margin-top: 12px; color: var(--cyan); font-size: .8rem;">CARS beats Adaptive-Z by +5.2% and BH-GC by +6.0% in power</p>
@@ -360,7 +360,7 @@
                 <p>Upstream gene regulation: GC-box TF hub, chromatin remodeling, myelination programming.</p>
                 <div class="genes">SP4★ · CHD2★ · CHD7 · HDAC9 · SREBF2 · FANCA · MEF2C-AS1</div></div>
         </div>
-        <p style="margin-top: 18px; font-size: .8rem; color: var(--text3);">★ = PGC3/SCHEMA confirmed locus (positive control validating CARS-SDA)</p>
+        <p style="margin-top: 18px; font-size: .8rem; color: var(--text3);">★ = PGC3/SCHEMA confirmed locus (positive control validating CARS-JC)</p>
     </div>
 </section>
 
@@ -533,7 +533,7 @@
 <section>
     <div class="container">
         <h2 class="stitle">Quick Start</h2>
-        <p class="sdesc">Run CARS-SDA v3.0 on your own GWAS data</p>
+        <p class="sdesc">Run CARS-JC v3.0 on your own GWAS data</p>
         <div class="code-card">
             <pre><span class="kw">from</span> <span class="mod">src.cars_sda</span> <span class="kw">import</span> cars_sda
 
@@ -549,7 +549,7 @@ rej, cars_stat, thr, mu0, sigma0, diag = cars_sda(Z, S, alpha=<span class="num">
 </section>
 
 <footer><div class="container">
-    <p><strong>CARS-SDA v3.0</strong> &middot; <a href="https://github.com/wangweinan/cars-sda-gwas">GitHub Repository</a> &middot; MIT License</p>
+    <p><strong>CARS-JC v3.0</strong> &middot; <a href="https://github.com/wangweinan/cars-sda-gwas">GitHub Repository</a> &middot; MIT License</p>
     <p style="margin-top: 8px;">CARS (Cai, Sun &amp; Wang 2019) &middot; SDA (Du et al. 2023) &middot; Jin-Cai (2007) &middot; PGC3 (Trubetskoy et al. 2022)</p>
 </div></footer>
 

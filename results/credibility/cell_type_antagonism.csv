@@ -1,0 +1,6 @@
+SNP,n_cell_types,n_positive,n_negative,cell_types,genes,betas
+rs2675555,3,1,2,"Endothelial_cells, Excitatory_Neurons, Microglia","TMTC4, TMTC4, TMTC4","-0.287, +0.111, -0.193"
+rs12462062,3,2,1,"Endothelial_cells, Excitatory_Neurons, Oligodendrocytes","SIGLEC7, ZNF577, ZNF577","-0.325, +0.130, +0.271"
+rs3748655,2,1,1,"Excitatory_Neurons, Oligodendrocytes","WNT2B, CAPZA1","-0.186, +0.241"
+rs1572412,2,1,1,"Inhibitory_Neurons, OPCs","ARHGEF11, MEF2D","+0.183, -0.133"
+rs35483388,2,1,1,"Astrocytes, Pericytes","UBASH3B, UBASH3B","-0.122, +0.222"

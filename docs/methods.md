@@ -1,8 +1,8 @@
-# CARS-SDA: Methods
+# CARS-JC: Methods
 
 ## Overview
 
-We developed **CARS-SDA** (Covariate-Adaptive Ranking and Screening with Empirical Null Estimation), a statistical framework for large-scale GWAS discovery that integrates three methodological innovations:
+We developed **CARS-JC** (Covariate-Adaptive Ranking and Screening with Empirical Null Estimation), a statistical framework for large-scale GWAS discovery that integrates three methodological innovations:
 
 1. **Jin-Cai empirical null estimation** (Jin & Cai, 2007) for robust identification of the null distribution parameters (μ₀, σ₀, π₀) directly from the observed z-score distribution using Fourier analysis
 2. **Bivariate CARS density-ratio statistic** (Cai, Sun & Wang, 2019) that leverages covariate information (minor allele frequency) to adaptively weight discoveries
@@ -81,7 +81,7 @@ This yielded **1,745 independent loci** (vs. 1,527 from BH with genomic control)
 
 ### Simulation Study
 
-We validated CARS-SDA calibration using synthetic data (m = 1,000,000 variants):
+We validated CARS-JC calibration using synthetic data (m = 1,000,000 variants):
 - **Null inflation**: σ₀ = 1.16 (matching PGC3 data)
 - **Alternative**: 60% N(3.5, 1) + 40% Laplace(4.0, 1.5) — deliberately non-Gaussian
 - **Signal fraction**: 1.27%
@@ -91,9 +91,9 @@ We validated CARS-SDA calibration using synthetic data (m = 1,000,000 variants):
 | BH (raw, no GC) | 9,832 | 27.0% ✗ | 56.4% |
 | BH (GC-corrected) | 3,753 | 4.9% ✓ | 28.1% |
 | Adaptive-Z (emp. null) | 3,781 | 4.9% ✓ | 28.3% |
-| **CARS-SDA** | **3,994** | **5.3%** ✓ | **29.8%** |
+| **CARS-JC** | **3,994** | **5.3%** ✓ | **29.8%** |
 
-CARS-SDA achieves +5.2% more power than Adaptive-Z and +6.0% more than BH-GC while maintaining FDR control.
+CARS-JC achieves +5.2% more power than Adaptive-Z and +6.0% more than BH-GC while maintaining FDR control.
 
 ### Credibility Assessment of Net New Loci
 
@@ -138,7 +138,7 @@ We performed Coloc-ABF (Giambartolomei et al., 2014) analysis for the 17 loci wi
 
 ## Software and Reproducibility
 
-The CARS-SDA pipeline is implemented in Python 3.11+ with dependencies:
+The CARS-JC pipeline is implemented in Python 3.11+ with dependencies:
 - `numpy`, `scipy` — core computation
 - `pandas` — data handling
 - `matplotlib` — visualization

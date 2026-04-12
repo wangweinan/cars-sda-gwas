@@ -1,5 +1,5 @@
 """
-CARS-SDA: Covariate-Adaptive FDR Control with Empirical Null
+CARS-JC: Covariate-Adaptive FDR Control with Empirical Null
 =============================================================
 Integrates:
   - CARS (Cai, Sun, Wang 2019) bivariate density-ratio statistic
@@ -251,11 +251,11 @@ def _stepup(statistic, alpha):
     return rej, thr
 
 
-# --- Main CARS-SDA Procedure -------------------------------------------------
+# --- Main CARS-JC Procedure -------------------------------------------------
 
 def cars_sda(Z, S, alpha=0.05, tau=0.9, mu0=None, sigma0=None, verbose=True):
     """
-    CARS-SDA: proper bivariate density-ratio statistic.
+    CARS-JC: proper bivariate density-ratio statistic.
 
     Implements the CARS construction from Cai, Sun & Wang (2019):
 
@@ -344,7 +344,7 @@ def cars_sda(Z, S, alpha=0.05, tau=0.9, mu0=None, sigma0=None, verbose=True):
     rej, thr = _stepup(cars_stat, alpha)
 
     if verbose:
-        print(f"  CARS-SDA: {rej.sum():,} rejections (threshold={thr:.5f})")
+        print(f"  CARS-JC: {rej.sum():,} rejections (threshold={thr:.5f})")
 
     diagnostics = {
         'lfdr_marginal': lfdr_marginal,
