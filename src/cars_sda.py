@@ -3,8 +3,16 @@ CARS-SDA: Covariate-Adaptive FDR Control with Empirical Null
 =============================================================
 Integrates:
   - CARS (Cai, Sun, Wang 2019) bivariate density-ratio statistic
-  - SDA (Du et al. 2023) step-up FDR control
   - Jin-Cai (2007) Fourier-based empirical null estimation
+  - Barber-Candès step-up for FDR control
+
+NOTE: Despite the name, we do NOT currently implement the full
+SDA step-down dependency adjustment (Du et al. 2023). Our step-up
+procedure treats observations as independent. For LD-correlated
+GWAS data, FDR control relies on the PRDS condition being satisfied
+(plausible under positive LD, but not formally proven).
+The "SDA" name is retained for continuity but should be understood
+as aspirational — proper LD-aware step-down is a future extension.
 
 The CARS statistic is the bivariate analogue of lfdr:
 
